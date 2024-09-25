@@ -1,5 +1,5 @@
 #include "main.h"
-
+#include "math.h"
 int val_adc;
 float distance;
 uint16_t array_ADC[1000];
@@ -10,7 +10,7 @@ extern ADC_HandleTypeDef hadc1;
 // Khai báo prototype của hàm kalman_filter
 float kalman_filter(unsigned long ADC_Value);
 
-float map(float x, float In_Max, float In_Min, float Out_Max, float Out_Min)
+float map_ss(float x, float In_Max, float In_Min, float Out_Max, float Out_Min)
 {
     return (((x - In_Min) * (Out_Max - Out_Min) / (In_Max - In_Min)) + Out_Min);
 }
@@ -40,7 +40,7 @@ float read_ss(void)
 
     filter_adc = array_ADC[1000 / 2];
     kalman_adc = kalman_filter(filter_adc);
-  distance = map(kalman_adc, 204, 4095, 0.0, 180.0);
+  distance = map_ss(kalman_adc, 204, 4095, 0.0, 180.0);
   HAL_Delay(500);
   return distance;
 }

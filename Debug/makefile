@@ -60,8 +60,8 @@ all: main-build
 main-build: Rbee_Pressure.elf secondary-outputs
 
 # Tool invocations
-Rbee_Pressure.elf Rbee_Pressure.map: $(OBJS) $(USER_OBJS) D:\Project\Project_STM\Rbee_Pressure\STM32F103RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Rbee_Pressure.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\Project\Project_STM\Rbee_Pressure\STM32F103RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Rbee_Pressure.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Rbee_Pressure.elf Rbee_Pressure.map: $(OBJS) $(USER_OBJS) /home/thuanphat7/Agriconnect/Rbee_Pressure/STM32F103RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Rbee_Pressure.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"/home/thuanphat7/Agriconnect/Rbee_Pressure/STM32F103RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Rbee_Pressure.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
