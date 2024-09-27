@@ -27,6 +27,7 @@ bool AT_Stop_MQTT = false;
 bool inital_check = false;
 uint16_t count_errors = 0;
 int timeout_pb_done = 40000;
+float water_level;
 
 void turnOnA76XX(void) {
   printf("Enable SIMCOM\n");
@@ -383,6 +384,7 @@ void restart_stm32(void) {
 }
 int init_cricket(void) {
   printf("\r\n-----------------INIT CRICKET !------------------\r\n");
+  water_level = read_ss();
   for (int i = 0; i <= 3; i++) {
     if (isPBDONE == true) {
       if (!fn_CheckSim) {

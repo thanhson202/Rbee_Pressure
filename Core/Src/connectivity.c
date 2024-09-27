@@ -84,9 +84,9 @@ void create_JSON(void) {
 //    sprintf(payload1, "%d", i);
 //    cJSON_AddNumberToObject(json, payload1, statusOfLoad);
 //  }
-  cJSON_AddNumberToObject(json, "water_level", int_sensor_pressre);
-  cJSON_AddNumberToObject(json, "_gsm_signal_strength", rssi);
-  cJSON_AddNumberToObject(json, "_battery_level", Data_Percentage_pin);
+  cJSON_AddNumberToObject(json, "WaterLevel", int_sensor_pressre);
+//  cJSON_AddNumberToObject(json, "_gsm_signal_strength", rssi);
+//  cJSON_AddNumberToObject(json, "_battery_level", Data_Percentage_pin);
   char *json_string = cJSON_Print(json);
   if (json_string == NULL) {
     printf("New create error JSON\n");

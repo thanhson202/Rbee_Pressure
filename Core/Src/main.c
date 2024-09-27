@@ -204,7 +204,7 @@ int main(void)
 		if (!is_sleep_mode) {
 			is_sleep_mode = Sleep_Stm32_A7672S();
 		}
-
+//	  distance_ss = read_ss();
 
 
   }

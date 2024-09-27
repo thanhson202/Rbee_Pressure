@@ -20,7 +20,7 @@
 #define a7670c 2
 #define a7670sa 3
 
-#define SIMCOM_MODEL a7670c // #default is a7670c if you use model other please choose enter your model
+#define SIMCOM_MODEL a7670sa // #default is a7670c if you use model other please choose enter your model
 // Serial number. Must be lower case.
 #ifndef SERIAL_NUMBER
   #define SERIAL_NUMBER "rb000032"
@@ -32,7 +32,7 @@
 //#define MQTT_USER "mqttnode"       // User - connect to MQTT broker
 //#define MQTT_PASS "congamo"		// Password - connect to MQTT broker
 
-#define MQTT_TOPIC_ACTUATOR_STATUS FARM "/sn/" SERIAL_NUMBER "/as/"
+#define MQTT_TOPIC_ACTUATOR_STATUS FARM "/sn/" SERIAL_NUMBER // "/as/"
 // MQTT topic to subscribe and get command to switch on/off actuator
 #define MQTT_TOPIC_ACTUATOR_CONTROL FARM "/snac/" SERIAL_NUMBER "/"
 /** MQTT
