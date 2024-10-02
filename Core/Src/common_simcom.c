@@ -379,7 +379,7 @@ void restart_stm32(void) {
   printf("\r\n-----------------Restart STM32------------------\r\n");
   printf("\r\n-----------------GOOD BYE !------------------\r\n");
   stop_mqtt_via_gsm();
-  write_status_load();
+//  write_status_load();
   NVIC_SystemReset();
 }
 int init_cricket(void) {
