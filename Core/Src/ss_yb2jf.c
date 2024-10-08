@@ -4,12 +4,13 @@
 #define Address 0x807D000
 uint32_t read_flash;
 int val_adc;
-int distance;
+uint32_t distance;
 float first_distance;
 uint16_t array_ADC[100];
 uint16_t array_distance[100];
 int filter_adc;
 float kalman_adc;
+int dem ;
 extern ADC_HandleTypeDef hadc1;
 
 
@@ -46,12 +47,14 @@ uint32_t Read_Page() {
 // xử lý và trả giá trị cảm biến
 float read_ss(void)
 {
+	dem=0;
+	while(dem<200)
+	{
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, 100);
 	read_flash=Read_Page();
-	int count=0;
-	do
-		{
+
+
 		for (int i = 0; i < 100; i++) {
 			val_adc = HAL_ADC_GetValue(&hadc1);
 			array_ADC[i] = val_adc;
@@ -91,30 +94,27 @@ float read_ss(void)
 			}
 		}
 		distance = array_distance[100/2];
-		if(distance - read_flash >= 2 || distance - read_flash < -1)
+		if(distance - read_flash >= 1 || distance - read_flash > -1)//
 		{
-			count ++;
-			continue;
-
+			dem ++;
 		}
 		else
 		{
 			Flash_Erase();
-			Flash_write((uint32_t) distance);
-			printf("data ok/n");
-			read_flash = distance;
+			Flash_write(distance);//(uint32_t)
+			printf("                      no run do while           /n");
+//			read_flash = distance;
 			break;
-
 		}
-	}
-	while(count<=200);
-	if((count ==200 && (distance - read_flash >= 1))|| (count ==200 && (distance - read_flash <= -1)))
+		}
+	if(dem >199  )//&& (distance - read_flash > 1))|| (count <190 && (distance - read_flash <= -1))
 	{
 		Flash_Erase();
-		Flash_write((uint32_t) distance);
-		printf("data error/n");
-		read_flash = distance;
+		Flash_write(distance);//(uint32_t)
+		printf("            run do while               /n");
+//		read_flash = distance;
 	}
+//	read_flash=Read_Page();
 	HAL_ADC_Stop(&hadc1);
 return distance;
 }
