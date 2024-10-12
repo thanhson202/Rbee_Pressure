@@ -33,8 +33,8 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "stdbool.h"
 float Level_Pin (void);
-void Flash_Erase(void);
-void Flash_write(uint32_t Data);
+void Flash_Erase(uint32_t address);
+void Flash_write(uint32_t address,uint32_t Data);
 float kalman_filter(unsigned long ADC_Value);
 //uint32_t Read_Page();
 //extern uint32_t value_page0;
@@ -43,7 +43,7 @@ float kalman_filter(unsigned long ADC_Value);
 //extern uint32_t value_page3;
 //extern uint32_t value_Relay;
 //extern float distance_ss;
-extern int int_sensor_pressre;
+extern float int_sensor_pressre;
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

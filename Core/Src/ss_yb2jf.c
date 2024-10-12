@@ -1,16 +1,28 @@
 #include "main.h"
 #include "math.h"
 #include "stdio.h"
-#define Address 0x807D000
-uint32_t read_flash;
+#define int_address 0x807D000
+#define float_address 0x807E000
+int read_flash_int;
+int read_flash_float;
+float read_flash;
 int val_adc;
-uint32_t distance;
-float first_distance;
+float distance;
 uint16_t array_ADC[100];
-uint16_t array_distance[100];
+float array_distance[100];
 int filter_adc;
 float kalman_adc;
-int dem ;
+int dem;
+
+// value test
+uint32_t first_read;
+float secon_read;
+float value_test;
+int intdistance,floatdistance ;
+float minus;
+
+///
+
 extern ADC_HandleTypeDef hadc1;
 
 
@@ -21,11 +33,11 @@ float map_ss(float x, float In_Max, float In_Min, float Out_Max, float Out_Min)
 }
 
 // xóa trang bộ nhớ flash
-void Flash_Erase(void) {
+void Flash_Erase(uint32_t address) {
   HAL_FLASH_Unlock();
   FLASH_EraseInitTypeDef pEraseInit;
   pEraseInit.TypeErase = FLASH_TYPEERASE_PAGES;
-  pEraseInit.PageAddress = Address;
+  pEraseInit.PageAddress = address;
   pEraseInit.NbPages = 1;
   uint32_t PageError = 0;
   HAL_FLASHEx_Erase(&pEraseInit, &PageError);
@@ -33,27 +45,29 @@ void Flash_Erase(void) {
 }
 
 // viết dữ liệu vào tại 1 địa chỉ flash
-void Flash_write(uint32_t Data) {
+void Flash_write(uint32_t address,uint32_t Data) {
   HAL_FLASH_Unlock();
-  HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address, Data);
+  HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address, Data);
   HAL_FLASH_Lock();
 }
 
 //đọc giá trị tại 1 địa chỉ trong flash
-uint32_t Read_Page() {
-  return *(uint32_t *)(Address);
+uint32_t Read_Page(uint32_t address) {
+  return *(uint32_t *)(address);
 }
 
 // xử lý và trả giá trị cảm biến
 float read_ss(void)
 {
+	int check =0;
 	dem=0;
-	while(dem<200)
+	while(dem<20)
 	{
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, 100);
-	read_flash=Read_Page();
-
+	read_flash_int = Read_Page(int_address);
+	read_flash_float = Read_Page(float_address);
+	read_flash = (read_flash_int + read_flash_float *0.01);
 
 		for (int i = 0; i < 100; i++) {
 			val_adc = HAL_ADC_GetValue(&hadc1);
@@ -78,7 +92,7 @@ float read_ss(void)
 		}
 		for(int i=0;i<=100;i++)
 		{
-			distance = map_ss(kalman_adc, 568, 3500, 0.0, 190.0);
+			distance = map_ss(kalman_adc, 670, 3500, 0, 90);//568, 3500, 0.0, 190.0
 			array_distance[i]=distance;
 		}
 		for(int i=0;i<99;i++)
@@ -94,27 +108,41 @@ float read_ss(void)
 			}
 		}
 		distance = array_distance[100/2];
-		if(distance - read_flash >= 1 || distance - read_flash > -1)//
+		intdistance = distance /1;
+		floatdistance = (int) ((distance - intdistance)*100)%100;
+		minus = distance - read_flash ;
+		if(distance - read_flash > 0.5 || distance - read_flash < -0.5)//
 		{
 			dem ++;
+			printf("++++++++++++++++++++ dem++  ++++++++++++++++++\n");
 		}
 		else
 		{
-			Flash_Erase();
-			Flash_write(distance);//(uint32_t)
-			printf("                      no run do while           /n");
-//			read_flash = distance;
-			break;
+			check++;
+			if(check == 3)
+			{
+				/*
+				Flash_Erase(int_address);
+				Flash_write(int_address,intdistance);//intdistance
+				HAL_Delay(1000);
+				Flash_Erase(float_address);
+				Flash_write(float_address,floatdistance);//floatdistance
+				*/
+				distance = read_flash;
+				printf("++++++++++++++++++ no run do while +++++++++++++++++/n");
+				break;
+			}
 		}
 		}
-	if(dem >199  )//&& (distance - read_flash > 1))|| (count <190 && (distance - read_flash <= -1))
+	if(dem >19)//&& (distance - read_flash > 1))|| (count <190 && (distance - read_flash <= -1))
 	{
-		Flash_Erase();
-		Flash_write(distance);//(uint32_t)
-		printf("            run do while               /n");
-//		read_flash = distance;
+		Flash_Erase(int_address);
+		Flash_write(int_address,intdistance);
+		HAL_Delay(1000);
+		Flash_Erase(float_address);
+		Flash_write(float_address,floatdistance);
+		printf("+++++++++++++++++++++ run do while +++++++++++++++++++++/n");
 	}
-//	read_flash=Read_Page();
 	HAL_ADC_Stop(&hadc1);
 return distance;
 }

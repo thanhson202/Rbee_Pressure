@@ -66,7 +66,7 @@ int isConnectMQTT = 0;
 float Data_Percentage_pin;
 int update_status_to_server;
 
-int int_sensor_pressre;
+float int_sensor_pressre;
 
 bool fn_Enable_MQTT = false;
 bool fn_Connect_MQTT = false;

@@ -23,7 +23,7 @@
 #define SIMCOM_MODEL a7670sa // #default is a7670c if you use model other please choose enter your model
 // Serial number. Must be lower case.
 #ifndef SERIAL_NUMBER
-  #define SERIAL_NUMBER "rb000032"
+  #define SERIAL_NUMBER "rb000031"
 #endif
 
 #define MQTT_USER "node" 		// User - connect to MQTT broker
