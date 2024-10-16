@@ -19,7 +19,9 @@
 #define a7672s 1
 #define a7670c 2
 #define a7670sa 3
-
+//
+#define run 1
+//
 #define SIMCOM_MODEL a7670sa // #default is a7670c if you use model other please choose enter your model
 // Serial number. Must be lower case.
 #ifndef SERIAL_NUMBER

@@ -3,8 +3,8 @@
 #include "stdio.h"
 #define int_address 0x807D000
 #define float_address 0x807E000
-int read_flash_int;
-int read_flash_float;
+int read_flash_int,read_flash_float;
+int int_distance,float_distance;
 float read_flash;
 int val_adc;
 float distance;
@@ -13,15 +13,7 @@ float array_distance[100];
 int filter_adc;
 float kalman_adc;
 int dem;
-
-// value test
-uint32_t first_read;
-float secon_read;
-float value_test;
-int intdistance,floatdistance ;
-float minus;
-
-///
+float test_raed;
 
 extern ADC_HandleTypeDef hadc1;
 
@@ -44,109 +36,19 @@ void Flash_Erase(uint32_t address) {
   HAL_FLASH_Lock();
 }
 
-// viết dữ liệu vào tại 1 địa chỉ flash
+// viết dữ liệu vào địa chỉ flash
 void Flash_write(uint32_t address,uint32_t Data) {
   HAL_FLASH_Unlock();
   HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address, Data);
   HAL_FLASH_Lock();
 }
 
-//đọc giá trị tại 1 địa chỉ trong flash
+//đọc giá trị địa chỉ trong flash
 uint32_t Read_Page(uint32_t address) {
   return *(uint32_t *)(address);
 }
 
-// xử lý và trả giá trị cảm biến
-float read_ss(void)
-{
-	int check =0;
-	dem=0;
-	while(dem<20)
-	{
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 100);
-	read_flash_int = Read_Page(int_address);
-	read_flash_float = Read_Page(float_address);
-	read_flash = (read_flash_int + read_flash_float *0.01);
-
-		for (int i = 0; i < 100; i++) {
-			val_adc = HAL_ADC_GetValue(&hadc1);
-			array_ADC[i] = val_adc;
-		}
-
-		for (int i = 0; i < 99; i++) {
-			for (int j = i + 1; j < 100; j++) {
-				if (array_ADC[i] < array_ADC[j]) {
-					int temp = array_ADC[i];
-					array_ADC[i] = array_ADC[j];
-					array_ADC[j] = temp;
-				}
-			}
-		}
-
-		filter_adc = array_ADC[100 / 2];
-
-		for(int x=0;x<=20000;x++)
-		{
-			kalman_adc = kalman_filter(filter_adc);
-		}
-		for(int i=0;i<=100;i++)
-		{
-			distance = map_ss(kalman_adc, 670, 3500, 0, 90);//568, 3500, 0.0, 190.0
-			array_distance[i]=distance;
-		}
-		for(int i=0;i<99;i++)
-		{
-			for(int j=i+1;j<100;j++)
-			{
-				if(array_distance[i]<array_distance[j])
-				{
-					int virtual = array_distance[i];
-					array_distance[i] = array_distance[j];
-					array_distance[j] = virtual;
-				}
-			}
-		}
-		distance = array_distance[100/2];
-		intdistance = distance /1;
-		floatdistance = (int) ((distance - intdistance)*100)%100;
-		minus = distance - read_flash ;
-		if(distance - read_flash > 0.5 || distance - read_flash < -0.5)//
-		{
-			dem ++;
-			printf("++++++++++++++++++++ dem++  ++++++++++++++++++\n");
-		}
-		else
-		{
-			check++;
-			if(check == 3)
-			{
-				/*
-				Flash_Erase(int_address);
-				Flash_write(int_address,intdistance);//intdistance
-				HAL_Delay(1000);
-				Flash_Erase(float_address);
-				Flash_write(float_address,floatdistance);//floatdistance
-				*/
-				distance = read_flash;
-				printf("++++++++++++++++++ no run do while +++++++++++++++++/n");
-				break;
-			}
-		}
-		}
-	if(dem >19)//&& (distance - read_flash > 1))|| (count <190 && (distance - read_flash <= -1))
-	{
-		Flash_Erase(int_address);
-		Flash_write(int_address,intdistance);
-		HAL_Delay(1000);
-		Flash_Erase(float_address);
-		Flash_write(float_address,floatdistance);
-		printf("+++++++++++++++++++++ run do while +++++++++++++++++++++/n");
-	}
-	HAL_ADC_Stop(&hadc1);
-return distance;
-}
-
+// lọc kalman
 float kalman_filter(unsigned long ADC_Value)
 {
     static float x_k1_k1, x_k_k1;
@@ -170,3 +72,93 @@ float kalman_filter(unsigned long ADC_Value)
 
     return kalman_adc_old;
 }
+
+// xử lý và trả giá trị cảm biến
+float read_ss(void)
+{
+	int check =0;
+	dem=0;
+	while(dem<36)
+	{
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 100);
+		read_flash_int = Read_Page(int_address);
+		read_flash_float = Read_Page(float_address);
+		if(read_flash_float == 0)
+		{
+			read_flash = read_flash_int + read_flash_float;
+		}
+		else
+		{
+			read_flash = read_flash_int + (read_flash_float *0.1);
+		}
+
+		for (int i = 0; i < 100; i++) {
+			val_adc = HAL_ADC_GetValue(&hadc1);
+			array_ADC[i] = val_adc;
+		}
+
+		for (int i = 0; i < 99; i++) {
+			for (int j = i + 1; j < 100; j++) {
+				if (array_ADC[i] < array_ADC[j]) {
+					int temp = array_ADC[i];
+					array_ADC[i] = array_ADC[j];
+					array_ADC[j] = temp;
+				}
+			}
+		}
+
+		filter_adc = array_ADC[100 / 2];
+
+		for(int x=0;x<=20000;x++){
+			kalman_adc = kalman_filter(filter_adc);
+		}
+		for(int i=0;i<=100;i++){
+			distance = map_ss(kalman_adc,600, 3500, 0, 90 );//568, 3500, 0.0, 190.0
+			array_distance[i]=distance;
+		}
+		for(int i=0;i<99;i++){
+			for(int j=i+1;j<100;j++){
+				if(array_distance[i]<array_distance[j])
+				{
+					int virtual = array_distance[i];
+					array_distance[i] = array_distance[j];
+					array_distance[j] = virtual;
+				}
+			}
+		}
+		distance = array_distance[100/2];
+		distance =(int) ((distance - 20)*10)/10.0;
+		int_distance = distance /1;
+		float_distance = (int) ((distance - int_distance)*10)%10;
+		if(distance - read_flash > 0.3 || distance - read_flash < -0.3)//
+		{
+			dem ++;
+			printf("++++++++++++++++++++ dem %d  ++++++++++++++++++\n",dem);
+		}
+		else
+		{
+			check++;
+			if(check == 5)
+			{
+				distance = read_flash;
+				printf("++++++++++++++++++ no run do while +++++++++++++++++\n");
+				break;
+			}
+		}
+		}
+	if(dem >35)
+	{
+		Flash_Erase(int_address);
+		Flash_write(int_address,int_distance);
+		HAL_Delay(1000);
+		Flash_Erase(float_address);
+		Flash_write(float_address,float_distance);
+		printf("+++++++++++++++++++++ run do while +++++++++++++++++++++\n");
+	}
+	HAL_ADC_Stop(&hadc1);
+
+return distance;
+}
+
+

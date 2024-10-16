@@ -193,6 +193,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+#if run == 1
 	    if (!isConnectMQTT) {
 	      isConnectMQTT = init_cricket();
 	    }
@@ -204,8 +205,11 @@ int main(void)
 		if (!is_sleep_mode) {
 			is_sleep_mode = Sleep_Stm32_A7672S();
 		}
-//	  distance_ss = read_ss();
+#endif
 
+#if run == 0
+	  distance_ss = read_ss();
+#endif
 
   }
   /* USER CODE END 3 */
