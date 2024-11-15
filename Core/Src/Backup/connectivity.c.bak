@@ -13,7 +13,7 @@
 #include "string.h"
 #include <math.h>
 extern UART_HandleTypeDef huart1;
-char array_json[300];
+char array_json[150];
 
 void send_to_simcom_a76xx(char *cmd) {
   printf("STM32 Write: %s", cmd);
@@ -24,11 +24,6 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   if (huart->Instance == USART1) {
     printf("\r\nSIMCOM Response:");
     printf(rx_buffer);
-    static int times;
-        times = strlen(rx_buffer);
-        for (int i = 0; i < times; i++) {
-          rx_data_sim[i] = rx_buffer[i];
-        }
     if ((strstr((char *)rx_buffer, "+CMQTTCONNLOST") != NULL) &&
         is_pb_done == true) {
       printf(

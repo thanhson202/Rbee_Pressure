@@ -1,6 +1,7 @@
 #include "main.h"
 #include "math.h"
 #include "stdio.h"
+#include "config.h"
 #define int_address 0x807D000
 #define float_address 0x807E000
 int read_flash_int,read_flash_float;
@@ -12,8 +13,7 @@ uint16_t array_ADC[100];
 float array_distance[100];
 int filter_adc;
 float kalman_adc;
-int dem;
-float test_raed;
+
 
 extern ADC_HandleTypeDef hadc1;
 
@@ -77,21 +77,14 @@ float kalman_filter(unsigned long ADC_Value)
 float read_ss(void)
 {
 	int check =0;
-	dem=0;
-	while(dem<36)
+	int dem=0;
+	while(dem<20)
 	{
 		HAL_ADC_Start(&hadc1);
 		HAL_ADC_PollForConversion(&hadc1, 100);
 		read_flash_int = Read_Page(int_address);
 		read_flash_float = Read_Page(float_address);
-		if(read_flash_float == 0)
-		{
-			read_flash = read_flash_int + read_flash_float;
-		}
-		else
-		{
-			read_flash = read_flash_int + (read_flash_float *0.1);
-		}
+		read_flash = read_flash_int + (read_flash_float *0.1);
 
 		for (int i = 0; i < 100; i++) {
 			val_adc = HAL_ADC_GetValue(&hadc1);
@@ -114,7 +107,7 @@ float read_ss(void)
 			kalman_adc = kalman_filter(filter_adc);
 		}
 		for(int i=0;i<=100;i++){
-			distance = map_ss(kalman_adc,600, 3500, 0, 90 );//568, 3500, 0.0, 190.0
+			distance = map_ss(kalman_adc,KALMAN_ADC_MIN, KALMAN_ADC_MAX, DISTANCE_MIN, DISTANCE_MAX );//568, 3500, 0.0, 190.0;730, 3500, 0, 90
 			array_distance[i]=distance;
 		}
 		for(int i=0;i<99;i++){
@@ -129,7 +122,15 @@ float read_ss(void)
 		}
 		distance = array_distance[100/2];
 		distance =(int) ((distance - 20)*10)/10.0;
-		int_distance = distance /1;
+		if(distance <-20)
+		{
+			distance = -20;
+		}
+		if(distance == 0.0)
+		{
+			distance = 0.1;
+		}
+		int_distance = (distance /1);
 		float_distance = (int) ((distance - int_distance)*10)%10;
 		if(distance - read_flash > 0.3 || distance - read_flash < -0.3)//
 		{
@@ -138,8 +139,9 @@ float read_ss(void)
 		}
 		else
 		{
+//			dem ++;
 			check++;
-			if(check == 5)
+			if(check == 10)
 			{
 				distance = read_flash;
 				printf("++++++++++++++++++ no run do while +++++++++++++++++\n");
@@ -147,7 +149,7 @@ float read_ss(void)
 			}
 		}
 		}
-	if(dem >35)
+	if(dem >19)
 	{
 		Flash_Erase(int_address);
 		Flash_write(int_address,int_distance);

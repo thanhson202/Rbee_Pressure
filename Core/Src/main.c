@@ -34,53 +34,23 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+int _write(int file, char *ptr, int len) {
+
+  int i;
+  for (i = 0; i < len; i++) {
+    ITM_SendChar(*ptr++);
+  }
+  return len;
+}
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-GPIO_TypeDef *GPIO_LOAD_PORT[4] = {PAYLOAD_1_GPIO_Port, PAYLOAD_2_GPIO_Port, PAYLOAD_3_GPIO_Port, PAYLOAD_4_GPIO_Port};
-unsigned int GPIO_LOAD_PIN[4] = {PAYLOAD_1_Pin, PAYLOAD_2_Pin, PAYLOAD_3_Pin, PAYLOAD_4_Pin};
-
-char AT_COMMAND[100];
-float SignalStrength = 0;
-int update_10_minute;
-int onReay = 0;
-int rssi = -99;
-float distance_ss;
-
-int timeOutConnectMQTT = 15000;
-int isPBDONE = 0;
-int payLoadPin, payLoadStatus;
-
-char rxBuffer[150];
-char rx_data_sim[150];
-int previousTick;
-int isConnectSimcomA76xx = 0;
-int isConnectMQTT = 0;
-float Data_Percentage_pin;
-int update_status_to_server;
-
-float int_sensor_pressre;
-
-bool fn_Enable_MQTT = false;
-bool fn_Connect_MQTT = false;
-bool fn_CheckSim = false;
-bool fn_Subcribe_MQTT = false;
-bool fn_Publish_MQTT = false;
-bool fn_Acquier_MQTT = false;
-bool fn_update_status = false;
-
-uint32_t address = 0x0801FC00;
-uint32_t data = 0x01;
-uint32_t read_data = 3;
-//uint32_t value_page[4];
-uint8_t is_sleep_mode = 0;
 
 /* USER CODE END PM */
 
@@ -99,46 +69,153 @@ UART_HandleTypeDef huart1;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_ADC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC2_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
-void turnOnA76XX(void); // reset module sim A76XX
-void processPayload(void);
-int connectSimcomA76xx();
-int connectMQTT();
-void sendingToSimcomA76xx(char *cmd);
-void ledStatus(char cmd);
-int sendStatusPayloadToMQTT(void);
-void informPayloadToServer(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int _write(int file, char *ptr, int len) {
+char at_command[300];
+float signal_strength = 0;
+int one_cycle;
+int on_relay = 0;
+int rssi = -99;
 
-  int i;
-  for (i = 0; i < len; i++) {
-    ITM_SendChar(*ptr++);
-  }
-  return len;
-}
+int is_pb_done = 0;
+int payLoadPin;
+
+char rx_buffer[150];
+char rx_data_sim[150];
+int previousTick;
+int is_connect_simcom = 0;
+int isConnectMQTT = 0;
+float data_percentage_pin;
+int update_status_to_server;
+float float_sensor_pressre;
+uint16_t frequency_1hz = 0;
+
+bool is_fn_enable_mqtt = false;
+bool is_fn_connect_mqtt = false;
+bool is_fn_check_sim = false;
+bool is_fn_subcribe_mqtt = false;
+bool is_fn_publish_mqtt = false;
+bool is_fn_acquier_mqtt = false;
+bool is_fn_update_status = false;
+uint8_t total_errors = 0;
+
+uint32_t address = 0x0801FC00;
+uint32_t data = 0x01;
+uint32_t read_data = 3;
+uint32_t value_page[4];
+enum GmsModemState CurrentStatusSimcom = Off;
+uint8_t check_error_internet;
+uint8_t check_error_mqtt;
+//tesst
+float test;
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim->Instance == htim6.Instance) {
-//    if (isConnectMQTT) {
-//      update_status_to_server = 1;
-//      update_10_minute++;
-//    }
-//    IWDG->KR = 0xAAAA;
-//  }
-//  HAL_TIM_Base_Start_IT(&htim6);
+    if (CurrentStatusSimcom == Subscribed) {
+      frequency_1hz++;
+      if (frequency_1hz >= INTERVAL_PUPLISH_DATA) {
+        update_status_to_server = 1;
+        one_cycle++;
+        frequency_1hz = 0;
+      }
+    }
   }
 }
 
+void fn_handle_state(enum GmsModemState status) {
+  switch (status) {
+  case Off: {
+    enable_simcom();
+    is_pb_done = event_wait_function();
+    if (is_pb_done) {
+      CurrentStatusSimcom = On;
+      printf("Current status Simcom On \r\n");
+    } else {
+      NVIC_SystemReset();
+    }
+    break;
+  }
+  case On: {
+    is_fn_check_sim = fn_check_signal_simcom();
+    if (is_fn_check_sim) {
+    	HAL_GPIO_WritePin(GPIOB, LED_STATUS_Pin, GPIO_PIN_RESET);
+      total_errors = 0;
+      CurrentStatusSimcom = InternetReady;
+      printf("Current status Simcom Internet Ready\r\n");
+    } else {
+      total_errors++;
+    }
+    if (total_errors > 5) {
+      restart_stm32();
+    }
+    break;
+  }
+  case InternetReady: {
+    is_fn_enable_mqtt = enable_mqtt_on_gsm_modem();
+    if (is_fn_enable_mqtt) {
+      is_fn_acquier_mqtt = acquire_gsm_mqtt_client();
+    }
+    if (is_fn_acquier_mqtt) {
+      is_fn_connect_mqtt = connect_mqtt_server_by_gsm();
+    }
+    if (is_fn_connect_mqtt) {
+      total_errors = 0;
+      CurrentStatusSimcom = MqttReady;
+      printf("Current status Simcom MQTT Ready\r\n");
+    } else
+      total_errors++;
+    if (total_errors > 5) {
+      restart_stm32();
+    }
+    break;
+  }
+  case MqttReady: {
+    is_fn_subcribe_mqtt = 1;
+    if (is_fn_subcribe_mqtt) {
+    	HAL_GPIO_WritePin(GPIOB, LED_STATUS_Pin, GPIO_PIN_SET);
+      total_errors = 0;
+      CurrentStatusSimcom = Subscribed;
+      printf("Current status Simcom Subscribed \r\n");
+    } else
+      total_errors++;
+    if (total_errors > 5) {
+      restart_stm32();
+    }
+    break;
+  }
+  case Subscribed: {
+	  float_sensor_pressre = read_ss();
+      is_fn_update_status = update_status();
+      if (is_fn_update_status) {
+    	  //stop_mqtt_via_gsm();
+          CurrentStatusSimcom = SleepRbee;
+//    	  HAL_Delay(500);
+        total_errors = 0;
+      } else {
+        total_errors++;
+        if (total_errors > 5) {
+          stop_mqtt_via_gsm();
+          CurrentStatusSimcom = On;
+        }
+      }
 
+    break;
+  }
+  case SleepRbee: {
+	  sleep_stm32();
+  }
+  default:
+    printf("Case cannot be determined !\r\n");
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -170,19 +247,15 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_ADC1_Init();
   MX_TIM6_Init();
   MX_USART1_UART_Init();
   MX_ADC2_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   printf("-----Welcome to Agriconnect-----\n");
-  printf("-----Hello Cricket-----\n");
-  //init_flash();
-  //read_flash_payload();
-  HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)rxBuffer, 150);
-  //HAL_TIM_Base_Start_IT(&htim6);
-  turnOnA76XX();
-  isPBDONE = event_wait_function();
+  printf("-----Hello Rbee <3 -----\n");
+  HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *)rx_buffer, 150);
+
 
   /* USER CODE END 2 */
 
@@ -193,24 +266,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-#if run == 1
-	    if (!isConnectMQTT) {
-	      isConnectMQTT = init_cricket();
-	    }
-	    int_sensor_pressre = read_ss();
-	    if (update_status_to_server == 0) {
-	      fn_update_status = update_status();
-	      update_status_to_server = 1;
-	    }
-		if (!is_sleep_mode) {
-			is_sleep_mode = Sleep_Stm32_A7672S();
-		}
-#endif
-
-#if run == 0
-	  distance_ss = read_ss();
-#endif
-
+	    fn_handle_state(CurrentStatusSimcom);
+//	  test = read_ss();
   }
   /* USER CODE END 3 */
 }
@@ -230,11 +287,7 @@ void SystemClock_Config(void)
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL4;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -244,12 +297,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV8;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV8;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
@@ -342,9 +395,9 @@ static void MX_ADC2_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -373,9 +426,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 50000-1;
+  htim6.Init.Prescaler = 59999;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 48000-1;
+  htim6.Init.Period = TIME_PERIOD;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -440,38 +493,27 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, PAYLOAD_4_Pin|PAYLOAD_3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, ENABLE_SENSOR_Pin|A76XX_PWRKEY_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PAYLOAD_2_Pin|PAYLOAD_1_Pin|LED_STATUS_Pin|ON_OFF_PWM_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(A76XX_PWRKEY_GPIO_Port, A76XX_PWRKEY_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : PAYLOAD_4_Pin PAYLOAD_3_Pin */
-  GPIO_InitStruct.Pin = PAYLOAD_4_Pin|PAYLOAD_3_Pin;
+  /*Configure GPIO pins : ENABLE_SENSOR_Pin A76XX_PWRKEY_Pin */
+  GPIO_InitStruct.Pin = ENABLE_SENSOR_Pin|A76XX_PWRKEY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PAYLOAD_2_Pin PAYLOAD_1_Pin LED_STATUS_Pin ON_OFF_PWM_Pin */
-  GPIO_InitStruct.Pin = PAYLOAD_2_Pin|PAYLOAD_1_Pin|LED_STATUS_Pin|ON_OFF_PWM_Pin;
+  /*Configure GPIO pin : LED_STATUS_Pin */
+  GPIO_InitStruct.Pin = LED_STATUS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : A76XX_PWRKEY_Pin */
-  GPIO_InitStruct.Pin = A76XX_PWRKEY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(A76XX_PWRKEY_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(LED_STATUS_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

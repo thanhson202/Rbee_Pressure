@@ -30,10 +30,8 @@ int timeout_pb_done = 40000;
 
 void create_JSON(void) {
   cJSON *json = cJSON_CreateObject();
-  data_percentage_pin=Level_Pin();
   cJSON_AddNumberToObject(json, "_gsm_signal_strength", rssi);
   cJSON_AddNumberToObject(json, "_battery_level", data_percentage_pin);
-  cJSON_AddNumberToObject(json, "WaterLevel", float_sensor_pressre);
   char *json_string = cJSON_Print(json);
   if (json_string == NULL) {
     printf("New create error JSON\n");
@@ -52,8 +50,7 @@ void sleep_stm32(void) {
   HAL_Delay(3000);
   HAL_GPIO_WritePin(A76XX_PWRKEY_GPIO_Port, A76XX_PWRKEY_Pin, RESET);
   HAL_Delay(6000);
-  HAL_GPIO_WritePin(GPIOB, LED_STATUS_Pin, GPIO_PIN_RESET);
-  printf("--------GOOD BYE !-------");
+  // HAL_GPIO_WritePin(GPIOB, LED_STATUS_Pin, GPIO_PIN_RESET);
   HAL_TIM_Base_Start_IT(&htim6);
   HAL_SuspendTick();
   HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
@@ -332,7 +329,6 @@ int event_wait_function(void) {
     //		}
   }
   if (is_connect_simcom == 0) {
-	  printf("No detect response PB DONE form SIMCOM \r\n");
     NVIC_SystemReset();
   }
 
